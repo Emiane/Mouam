@@ -40,9 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-next.config.ts
-next.config.js
-next.config.mjs
-package.json
-package-lock.json
-tsconfig.json
+# vinext / Cloudflare
+/dist/
+.vinext/
+.wrangler/
