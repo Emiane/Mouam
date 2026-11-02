@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+
 async function signature(params: Record<string, string>, secret: string) {
   const serialized = Object.entries(params)
     .sort(([first], [second]) => first.localeCompare(second))
@@ -8,9 +10,9 @@ async function signature(params: Record<string, string>, secret: string) {
 }
 
 export async function POST(request: Request) {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = env.CLOUDINARY_API_KEY;
+  const apiSecret = env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
     return Response.json({ error: "Cloudinary n’est pas encore configuré." }, { status: 500 });
