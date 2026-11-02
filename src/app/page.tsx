@@ -253,7 +253,7 @@ export default function Home() {
   const bookingPrice = bookingStyle ? bookingStyle.price : 0;
   const isBookingComplete = customerName.trim() !== "" && customerWhatsapp.trim() !== "" && selectedDate !== "" && selectedSlot !== "";
 
-  // Synchronisation avec le localStorage au montage du client
+  // Synchronisation avec le localStorage au montage côté client
   useEffect(() => {
     function syncLocalStorageData() {
       try {
