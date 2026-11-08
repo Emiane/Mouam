@@ -1,0 +1,5 @@
+# Copier ce fichier en `.dev.vars` pour `npm run dev` et `npm run start`.
+# En production, ces valeurs sont les variables du projet sur Hiraiship (`.dev.vars` n'y est pas lu).
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=

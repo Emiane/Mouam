@@ -1,19 +1,18 @@
-import { createHash } from "node:crypto";
+import { env } from "cloudflare:workers";
 
-export const runtime = "nodejs";
-
-function signature(params: Record<string, string>, secret: string) {
+async function signature(params: Record<string, string>, secret: string) {
   const serialized = Object.entries(params)
     .sort(([first], [second]) => first.localeCompare(second))
     .map(([key, value]) => `${key}=${value}`)
     .join("&");
-  return createHash("sha1").update(`${serialized}${secret}`).digest("hex");
+  const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`${serialized}${secret}`));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export async function POST(request: Request) {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = env.CLOUDINARY_API_KEY;
+  const apiSecret = env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
     return Response.json({ error: "Cloudinary n’est pas encore configuré." }, { status: 500 });
@@ -35,7 +34,7 @@ export async function POST(request: Request) {
   uploadData.append("file", file);
   uploadData.append("api_key", apiKey);
   uploadData.append("timestamp", timestamp);
-  uploadData.append("signature", signature(params, apiSecret));
+  uploadData.append("signature", await signature(params, apiSecret));
 
   const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
     method: "POST",

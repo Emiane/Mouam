@@ -2,35 +2,35 @@
   "name": "mouams-hairstyle",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "vite dev",
     "build": "vite build",
-    "start": "next start",
-    "export": "next export",
-    "lint": "eslint",
-    "dev:vinext": "vite dev --port 3001",
-    "build:vinext": "vite build"
+    "start": "wrangler dev --config dist/server/wrangler.json",
+    "lint": "eslint"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",
-    "next": "16.4.3",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "react-icons": "^5.7.0"
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-icons": "^5.7.0",
+    "react-server-dom-webpack": "19.3.1",
+    "vinext": "^1.4.1"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
+    "@cloudflare/vite-plugin": "^1.67.0",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.2.1",
     "@vitejs/plugin-rsc": "^0.5.38",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
-    "react-server-dom-webpack": "^19.3.1",
-    "tailwindcss": "^4",
+    "next": "16.4.3",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5",
-    "vinext": "^0.0.7",
-    "vite": "^7.3.7"
-  },
-  "type": "module"
+    "vite": "^8.3.5",
+    "wrangler": "^4.156.1"
+  }
 }
