@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mouam's Hairstyle
 
-## Getting Started
+Site de réservation et espace administrateur de Mouam's Hairstyle, déployé avec Vinext, Vite et Cloudflare Workers.
 
-First, run the development server:
+## Développement local
+
+Le projet utilise Node 22 ou une version plus récente :
 
 ```bash
+nvm install 22
+nvm use 22
+npm install
+cp .dev.vars.example .dev.vars
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Le site est disponible sur `http://localhost:5173`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuration Cloudinary
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Dans Cloudinary, récupérer le **Cloud name**, l’**API Key** et l’**API Secret**.
+2. Mettre ces valeurs dans `.dev.vars` pour le développement local :
 
-## Learn More
+```text
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+```
 
-To learn more about Next.js, take a look at the following resources:
+3. Dans les variables d’environnement du projet Hiraiship, ajouter les trois mêmes variables comme secrets de production. `.dev.vars` et `.env.local` ne doivent jamais être poussés sur Git.
+4. Ouvrir `/admin`, se connecter, puis ajouter une prestation et importer l’image. L’API signe l’upload côté serveur et range les images dans le dossier Cloudinary `mouams-hairstyle`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Après une rotation de clés Cloudinary, mettre à jour les variables Hiraiship et `.dev.vars`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Déploiement
 
-## Deploy on Vercel
+```bash
+npm run lint
+npm run build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Le dossier de sortie Cloudflare est généré par Vinext. Le déploiement Hiraiship doit utiliser Node 22 et définir les trois secrets Cloudinary avant le build.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Le lien **Espace admin** est disponible dans le pied de page du site et pointe vers `/admin`.
+
+## Limite actuelle des données
+
+Les prestations, réservations, avis et disponibilités sont encore stockés dans le `localStorage` du navigateur. Les modifications faites dans l’admin sont donc visibles dans le même navigateur, mais ne constituent pas encore une base de données partagée entre appareils ou visiteurs. Cloudinary stocke les images, mais ne remplace pas cette persistance applicative.

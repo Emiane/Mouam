@@ -1,10 +1,10 @@
 
-.admin-login { align-items: center; background: linear-gradient(rgba(59,32,24,.34), rgba(59,32,24,.34)), url("/admin-inspiration.jpeg") center / cover fixed; display: flex; justify-content: center; min-height: 100vh; padding: 24px; position: relative; }
+.admin-login { align-items: center; background: linear-gradient(rgba(59,32,24,.34), rgba(59,32,24,.34)), url("https://res.cloudinary.com/kzg6foiy/image/upload/v1794185208/mouams-hairstyle/cakjcsxdb3jjwhtklkjl.jpg") center / cover fixed; display: flex; justify-content: center; min-height: 100vh; padding: 24px; position: relative; }
 .admin-login:before { backdrop-filter: blur(7px); content: ""; inset: 0; position: absolute; }
 .admin-login-card { position: relative; z-index: 1; }
 .admin-login-card { background: var(--paper); box-shadow: 0 25px 70px rgba(59, 32, 24, .12); max-width: 430px; padding: 52px; width: 100%; }
 .admin-mark { align-items: center; background: var(--ink); border-radius: 50%; color: var(--peach); display: flex; height: 48px; justify-content: center; margin-bottom: 35px; width: 48px; }
-.admin-mark { background: var(--paper) url("/inspiration/logo.jpeg") center / cover; overflow: hidden; }
+.admin-mark { background: var(--paper) url("https://res.cloudinary.com/kzg6foiy/image/upload/v1794185189/mouams-hairstyle/z45zcmscf2zxxuwwfkkq.jpg") center / cover; overflow: hidden; }
 .admin-mark svg { display: none; }
 .admin-login-card { animation: admin-login-in .8s cubic-bezier(.22,1,.36,1) both; }
 .admin-login-card .admin-mark { animation: admin-mark-in .7s .15s ease both; }
@@ -13,12 +13,12 @@
 @media (max-width: 900px) { .admin-sidebar { width: 205px; }.admin-service-grid { grid-template-columns: repeat(2, 1fr); }.admin-columns { grid-template-columns: 1fr; } }
 
 .admin-shell { position: relative; }
-.admin-shell:before { background: linear-gradient(rgba(248,242,235,.78), rgba(248,242,235,.78)), url("/admin-background.jpeg") center / cover fixed; content: ""; filter: blur(5px); inset: 0; position: fixed; transform: scale(1.04); z-index: 0; }
+.admin-shell:before { background: linear-gradient(rgba(248,242,235,.78), rgba(248,242,235,.78)), url("https://res.cloudinary.com/kzg6foiy/image/upload/v1794185206/mouams-hairstyle/kdkxh2w4sda0mhjexjxg.jpg") center / cover fixed; content: ""; filter: blur(5px); inset: 0; position: fixed; transform: scale(1.04); z-index: 0; }
 .admin-shell > * { position: relative; z-index: 1; }
 .admin-service-image, .editor-image { aspect-ratio: 4 / 5; }
-.admin-service-image img, .editor-image img { object-fit: cover; }
+.admin-service-image img, .editor-image img { height: 100%; object-fit: cover; width: 100%; }
 .admin-service-grid { align-items: start; grid-auto-flow: dense; }
-.admin-logo { background: var(--paper) url("/inspiration/logo.jpeg") center / cover; overflow: hidden; }
+.admin-logo { background: var(--paper) url("https://res.cloudinary.com/kzg6foiy/image/upload/v1794185189/mouams-hairstyle/z45zcmscf2zxxuwwfkkq.jpg") center / cover; overflow: hidden; }
 .admin-logo svg { display: none; }
 .admin-stats button, .admin-panel, .admin-quick, .admin-service-card, .admin-info, .admin-editor { border-radius: 22px; }
 .admin-service-card { overflow: hidden; padding: 0; }

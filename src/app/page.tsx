@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Menu, MessageCircle, X } from "lucide-react";
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import { useEffect, useState, type CSSProperties } from "react";
@@ -37,7 +36,7 @@ const SERVICES: Service[] = [
     category: "Knotless",
     description: "Des tresses légères et protectrices, personnalisées selon votre style.",
     price: 85,
-    image: "/inspiration/image.jpeg",
+    image: "https://res.cloudinary.com/kzg6foiy/image/upload/v1794185187/mouams-hairstyle/v1dalofdyf9m9m69icot.jpg",
     size: "Moyenne",
     length: "Épaules",
     active: true,
@@ -48,7 +47,7 @@ const SERVICES: Service[] = [
     category: "Braids",
     description: "Un mélange de tresses et de boucles pour une finition souple et aérienne.",
     price: 120,
-    image: "/inspiration/idee2.jpeg",
+    image: "https://res.cloudinary.com/kzg6foiy/image/upload/v1794185179/mouams-hairstyle/rsdorkxm44z6kxk9avxp.jpg",
     size: "Fine",
     length: "Mi-dos",
     active: true,
@@ -59,7 +58,7 @@ const SERVICES: Service[] = [
     category: "Tresses",
     description: "Une coiffure graphique et élégante avec des détails qui attirent le regard.",
     price: 95,
-    image: "/inspiration/prestation-detail.jpeg",
+    image: "https://res.cloudinary.com/kzg6foiy/image/upload/v1794185195/mouams-hairstyle/qq6y9ztpvukdm3hbdl61.jpg",
     size: "Moyenne",
     length: "Longues",
     active: true,
@@ -70,7 +69,7 @@ const SERVICES: Service[] = [
     category: "Tresses",
     description: "Une création sur mesure, pensée avec vous pour vous ressembler.",
     price: 75,
-    image: "/inspiration/bg2.jpeg",
+    image: "https://res.cloudinary.com/kzg6foiy/image/upload/v1794185171/mouams-hairstyle/awp7nvp0smmpgiztfzqr.jpg",
     size: "Large",
     length: "Mi-dos",
     active: true,
@@ -108,8 +107,6 @@ const COUNTRY_CODES = [
   { code: "+49", name: "Allemagne" },
 ];
 
-const MINIMUM_BOOKING_DATE = "2026-10-27";
-const MINIMUM_BOOKING_MONTH = new Date(2026, 9, 1);
 const SCHOOL_HOLIDAY_RANGES = [
   ["2026-10-26", "2026-11-01"],
   ["2026-12-21", "2027-01-03"],
@@ -126,20 +123,34 @@ function isSchoolHoliday(date: string) {
   return SCHOOL_HOLIDAY_RANGES.some(([start, end]) => date >= start && date <= end);
 }
 
+function getCategories(category: string) {
+  return category.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function getTodayIsoDate() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+function isBookableDate(date: string) {
+  const day = new Date(`${date}T12:00:00`).getDay();
+  return date >= getTodayIsoDate() && (day === 0 || day === 6 || isSchoolHoliday(date));
+}
+
 // ==========================================
 // SOUS-COMPOSANT : CALENDRIER
 // ==========================================
 
 function WeekendCalendar({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [month, setMonth] = useState(() => (value ? new Date(`${value}T12:00:00`) : new Date(2026, 9, 1)));
+  const today = getTodayIsoDate();
+  const minimumMonth = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, 1);
+  const [month, setMonth] = useState(() => (value ? new Date(`${value}T12:00:00`) : minimumMonth));
 
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const monthLabel = month.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
-  const isBeforeMinimumMonth =
-    (month.getFullYear() === MINIMUM_BOOKING_MONTH.getFullYear() && month.getMonth() <= MINIMUM_BOOKING_MONTH.getMonth()) ||
-    month < MINIMUM_BOOKING_MONTH;
+  const isBeforeMinimumMonth = month < minimumMonth;
 
   const dateForDay = (day: number) =>
     `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -177,12 +188,10 @@ function WeekendCalendar({ value, onChange }: { value: string; onChange: (value:
         ))}
         {Array.from({ length: daysInMonth }, (_, index) => {
           const day = index + 1;
-          const date = new Date(month.getFullYear(), month.getMonth(), day);
-          const weekend = date.getDay() === 0 || date.getDay() === 6;
           const isoDate = dateForDay(day);
-          const past = isoDate < MINIMUM_BOOKING_DATE;
+          const past = isoDate < today;
           const holiday = isSchoolHoliday(isoDate);
-          const selectable = (weekend || holiday) && !past;
+          const selectable = isBookableDate(isoDate);
 
           return (
             <button
@@ -247,8 +256,11 @@ export default function Home() {
 
   // Variables calculées
   const unavailableSlots = blockedSlots;
-  const visibleStyles = filter === "Tout voir" ? siteServices : siteServices.filter((s) => s.category === filter);
+  const visibleStyles = filter === "Tout voir" ? siteServices : siteServices.filter((s) => getCategories(s.category).includes(filter));
   const displayedStyles = showAllGallery ? visibleStyles : visibleStyles.slice(0, 6);
+  const galleryColumns = Array.from({ length: 4 }, (_, columnIndex) =>
+    displayedStyles.filter((_, index) => index % 4 === columnIndex)
+  );
   const currentService = siteServices[activeService] ?? siteServices[0];
   const bookingPrice = bookingStyle ? bookingStyle.price : 0;
   const isBookingComplete = customerName.trim() !== "" && customerWhatsapp.trim() !== "" && selectedDate !== "" && selectedSlot !== "";
@@ -261,7 +273,7 @@ export default function Home() {
         if (Array.isArray(savedServices) && savedServices.length > 0) {
           const activeServices = savedServices.filter((s: Service) => s.active !== false);
           setSiteServices(activeServices);
-          setFilters(["Tout voir", ...Array.from(new Set(activeServices.map((s: Service) => s.category)))]);
+          setFilters(["Tout voir", ...Array.from(new Set(activeServices.flatMap((s: Service) => getCategories(s.category))))]);
         }
 
         setBlockedSlots(JSON.parse(localStorage.getItem("mouams-blocked-slots") ?? "[]"));
@@ -357,10 +369,9 @@ export default function Home() {
       setDateError("");
       return;
     }
-    const day = new Date(`${value}T12:00:00`).getDay();
-    if (day !== 0 && day !== 6 && !isSchoolHoliday(value)) {
+    if (!isBookableDate(value)) {
       setSelectedDate("");
-      setDateError("Les rendez-vous sont disponibles le week-end pendant les cours et tous les jours pendant les vacances.");
+      setDateError("Cette date est passée ou fermée. Les rendez-vous sont disponibles le week-end et tous les jours pendant les vacances.");
       return;
     }
     setSelectedDate(value);
@@ -372,7 +383,7 @@ export default function Home() {
       {/* HEADER */}
       <header className="nav-wrap">
         <a href="#accueil" className="brand">
-          <Image src="/inspiration/logo.jpeg" alt="Mouam's Hairstyle" width={72} height={72} priority />
+          <img src="https://res.cloudinary.com/kzg6foiy/image/upload/v1794185189/mouams-hairstyle/z45zcmscf2zxxuwwfkkq.jpg" alt="Mouam's Hairstyle" width={72} height={72} />
           <span className="brand-name">
             Mouam&apos;s<br />
             <em>Hairstyle</em>
@@ -405,8 +416,8 @@ export default function Home() {
               <a className="text-link" href="#galerie">Voir les coiffures <span>↓</span></a>
             </div>
           </div>
-          <div className="hero-image">
-            <Image src="/inspiration/imageEntree.jpg" alt="Modèle portant de longues tresses" fill priority sizes="(max-width: 800px) 100vw, 52vw" />
+          <div className="hero-image" style={{ "--image-background": "url(https://res.cloudinary.com/kzg6foiy/image/upload/v1794185185/mouams-hairstyle/dtqsfrj1odjxkqtrtbn9.jpg)" } as CSSProperties}>
+            <img src="https://res.cloudinary.com/kzg6foiy/image/upload/v1794185185/mouams-hairstyle/dtqsfrj1odjxkqtrtbn9.jpg" alt="Modèle portant de longues tresses" />
             <div className="hero-stamp">Mouam&apos;s<br /><span>Hairstyle</span><small>depuis Liège •</small></div>
           </div>
           <div className="hero-note">Tresses qui<br /><span>racontent</span><br />votre histoire <b>✳</b></div>
@@ -427,12 +438,16 @@ export default function Home() {
             ))}
           </div>
           <div className="gallery-grid">
-            {displayedStyles.map((service, index) => (
-              <button className={`gallery-card card-${index + 1}`} key={service.name} onClick={() => setSelectedStyle(service)}>
-                <Image src={service.image} alt={service.name} fill sizes="(max-width: 700px) 100vw, 25vw" />
-                <span className="card-overlay"><strong>{service.name}</strong><small>{service.price} € avec mèches</small></span>
-                <span className="card-arrow">↗</span>
-              </button>
+            {galleryColumns.map((column, columnIndex) => (
+              <div className="gallery-column" key={`gallery-column-${columnIndex}`}>
+                {column.map((service, itemIndex) => (
+                  <button className={`gallery-card card-${(columnIndex + itemIndex) % 4 + 1}`} key={service.name} onClick={() => setSelectedStyle(service)}>
+                    <img src={service.image} alt={service.name} />
+                    <span className="card-overlay"><strong>{service.name}</strong><small>{service.price} € avec mèches</small></span>
+                    <span className="card-arrow">↗</span>
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
           {visibleStyles.length > 6 && (
@@ -454,12 +469,12 @@ export default function Home() {
           </div>
           {currentService && (
             <div className="service-showcase" key={currentService.name}>
-              <div className="service-preview">
-                <Image src={currentService.image} alt={currentService.name} fill sizes="(max-width: 700px) 100vw, 48vw" />
+              <div className="service-preview" style={{ "--image-background": `url(${currentService.image})` } as CSSProperties}>
+                <img src={currentService.image} alt={currentService.name} />
                 <span className="service-index">0{activeService + 1} / 0{siteServices.length}</span>
               </div>
               <div className="service-details">
-                <p className="eyebrow light">{currentService.category}</p>
+                <p className="eyebrow light">{getCategories(currentService.category).join(" · ")}</p>
                 <h3>{currentService.name}</h3>
                 <p>{currentService.description}</p>
                 <div className="service-price">dès <strong>{currentService.price} €</strong><small>avec mèches</small></div>
@@ -486,8 +501,8 @@ export default function Home() {
 
         {/* À PROPOS */}
         <section id="apropos" className="about-section">
-          <div className="about-image">
-            <Image src="/inspiration/sandra.jpg" alt="Portrait de la coiffeuse Mouam's Hairstyle" fill sizes="(max-width: 800px) 100vw, 40vw" />
+          <div className="about-image" style={{ "--image-background": "url(https://res.cloudinary.com/kzg6foiy/image/upload/v1794185203/mouams-hairstyle/noc0qoxrin1ihzzaeep0.jpg)" } as CSSProperties}>
+            <img src="https://res.cloudinary.com/kzg6foiy/image/upload/v1794185203/mouams-hairstyle/noc0qoxrin1ihzzaeep0.jpg" alt="Portrait de la coiffeuse Mouam's Hairstyle" />
           </div>
           <div className="about-copy">
             <p className="eyebrow">L&apos;intention</p>
@@ -618,7 +633,7 @@ export default function Home() {
       {/* FOOTER */}
       <footer>
         <div className="brand footer-brand">
-          <Image src="/inspiration/logo.jpeg" alt="" width={56} height={56} />
+          <img src="https://res.cloudinary.com/kzg6foiy/image/upload/v1794185189/mouams-hairstyle/z45zcmscf2zxxuwwfkkq.jpg" alt="" width={56} height={56} />
           <span className="brand-name">Mouam&apos;s<br /><em>Hairstyle</em></span>
         </div>
         <p>Une coiffure. Une énergie.<br />Une histoire à vous.</p>
@@ -627,6 +642,7 @@ export default function Home() {
           <a href="https://www.facebook.com/profile.php?id=61553016847073" target="_blank" rel="noreferrer" aria-label="Facebook"><FaFacebook size={18} /> Mouam&apos;s Hairstyle</a>
           <a href="https://www.tiktok.com/@mouamshairstyle" target="_blank" rel="noreferrer" aria-label="TikTok"><FaTiktok size={18} /> Mouam&apos;s Hairstyle</a>
           <a href="https://www.instagram.com/mouamshairstyle" target="_blank" rel="noreferrer" aria-label="Instagram"><FaInstagram size={18} /> Mouam&apos;s Hairstyle</a>
+          <a className="admin-link" href="/admin">Espace admin ↗</a>
         </div>
         <small>© 2026 Mouam&apos;s Hairstyle. Tous droits réservés.</small>
       </footer>
@@ -637,7 +653,7 @@ export default function Home() {
           <div className="style-modal" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSelectedStyle(null)}>×</button>
             <div className="modal-image">
-              <Image src={selectedStyle.image} alt={selectedStyle.name} fill sizes="(max-width: 700px) 90vw, 420px" />
+              <img src={selectedStyle.image} alt={selectedStyle.name} />
             </div>
             <div className="modal-content">
               <p className="eyebrow">{selectedStyle.category}</p>

@@ -2,7 +2,6 @@
 
 /* eslint-disable @next/next/no-html-link-for-pages */
 
-import Image from "next/image";
 import "./admin.css";
 import {
   CalendarDays,
@@ -59,7 +58,7 @@ const defaultServices: Service[] = [
     category: "Knotless",
     description: "Des tresses légères et protectrices, personnalisées selon votre style.",
     price: 85,
-    image: "/inspiration/image.jpeg",
+    image: "https://res.cloudinary.com/kzg6foiy/image/upload/v1794185187/mouams-hairstyle/v1dalofdyf9m9m69icot.jpg",
     size: "Moyenne",
     length: "Épaules",
     active: true,
@@ -70,7 +69,7 @@ const defaultServices: Service[] = [
     category: "Braids",
     description: "Un mélange de tresses et de boucles pour une finition souple et aérienne.",
     price: 120,
-    image: "/inspiration/idee2.jpeg",
+    image: "https://res.cloudinary.com/kzg6foiy/image/upload/v1794185179/mouams-hairstyle/rsdorkxm44z6kxk9avxp.jpg",
     size: "Fine",
     length: "Mi-dos",
     active: true,
@@ -81,7 +80,7 @@ const defaultServices: Service[] = [
     category: "Tresses",
     description: "Une coiffure graphique et élégante avec des détails qui attirent le regard.",
     price: 95,
-    image: "/inspiration/prestation-detail.jpeg",
+    image: "https://res.cloudinary.com/kzg6foiy/image/upload/v1794185195/mouams-hairstyle/qq6y9ztpvukdm3hbdl61.jpg",
     size: "Moyenne",
     length: "Longues",
     active: true,
@@ -101,6 +100,10 @@ const defaultAppointments: Appointment[] = [
 ];
 
 const defaultSlots = ["08:00", "10:30", "13:00", "15:30", "18:00"];
+
+function normalizeCategories(category: string) {
+  return Array.from(new Set(category.split(",").map((item) => item.trim()).filter(Boolean))).join(", ");
+}
 
 // ==========================================
 // FONCTIONS UTILITAIRES
@@ -139,28 +142,15 @@ function stored<T>(key: string, fallback: T): T {
 // ==========================================
 
 export default function AdminPage() {
-  const [logged, setLogged] = useState(
-    () => typeof window !== "undefined" && sessionStorage.getItem("mouams-admin") === "true"
-  );
+  const [mounted, setMounted] = useState(false);
+  const [logged, setLogged] = useState(false);
   const [code, setCode] = useState("");
   const [tab, setTab] = useState("overview");
 
-  const [services, setServices] = useState<Service[]>(() =>
-    stored<Service[]>("mouams-services", defaultServices).map((service: Service) => ({
-      ...service,
-      price: Number(service.price ?? service.priceWithHair ?? 0),
-    }))
-  );
-
-  const [appointments, setAppointments] = useState<Appointment[]>(() =>
-    stored("mouams-appointments", defaultAppointments)
-  );
-  const [blocked, setBlocked] = useState<string[]>(() =>
-    stored("mouams-blocked-slots", ["10:30"])
-  );
-  const [availableSlots, setAvailableSlots] = useState<string[]>(() =>
-    stored("mouams-time-slots", defaultSlots)
-  );
+  const [services, setServices] = useState<Service[]>(defaultServices);
+  const [appointments, setAppointments] = useState<Appointment[]>(defaultAppointments);
+  const [blocked, setBlocked] = useState<string[]>(["10:30"]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>(defaultSlots);
   const [editing, setEditing] = useState<Service | null>(null);
   const [notice, setNotice] = useState("");
   const [loginFeedback, setLoginFeedback] = useState("");
@@ -204,6 +194,21 @@ export default function AdminPage() {
     }
   };
 
+  // Lecture du stockage navigateur après le montage (évite l'erreur d'hydratation)
+  useEffect(() => {
+    setLogged(sessionStorage.getItem("mouams-admin") === "true");
+    setServices(
+      stored<Service[]>("mouams-services", defaultServices).map((service: Service) => ({
+        ...service,
+        price: Number(service.price ?? service.priceWithHair ?? 0),
+      }))
+    );
+    setAppointments(stored("mouams-appointments", defaultAppointments));
+    setBlocked(stored("mouams-blocked-slots", ["10:30"]));
+    setAvailableSlots(stored("mouams-time-slots", defaultSlots));
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     function syncSharedData() {
       setAppointments(stored("mouams-appointments", appointments));
@@ -219,6 +224,8 @@ export default function AdminPage() {
     window.addEventListener("storage", syncSharedData);
     return () => window.removeEventListener("storage", syncSharedData);
   }, [appointments, availableSlots, blocked, services]);
+
+  if (!mounted) return <main className="admin-login" aria-busy="true" />;
 
   // Écran de Connexion
   if (!logged) {
@@ -494,7 +501,7 @@ function Services({
     event.preventDefault();
     if (!editing || !Number.isFinite(editing.price) || editing.price < 0) return;
 
-    const savedService = { ...editing, price: Number(editing.price) };
+    const savedService = { ...editing, category: normalizeCategories(editing.category), price: Number(editing.price) };
     saveServices(
       services.some((item) => item.id === editing.id)
         ? services.map((item) => (item.id === editing.id ? savedService : item))
@@ -553,7 +560,7 @@ function Services({
         {displayedServices.map((service) => (
           <article className="admin-service-card" key={service.id}>
             <div className="admin-service-image">
-              <Image src={service.image} alt={service.name} fill sizes="280px" />
+              <img src={service.image} alt={service.name} />
               <span>{service.active ? "Publié" : "Masqué"}</span>
             </div>
             <div className="admin-service-info">
@@ -604,7 +611,7 @@ function Services({
 
                 <div className={`editor-image ${editing.image ? "has-image" : "is-empty"}`}>
                   {editing.image ? (
-                    <Image src={editing.image} alt="Aperçu" fill sizes="400px" />
+                    <img src={editing.image} alt="Aperçu" />
                   ) : (
                     <div className="editor-image-placeholder">
                       <ImagePlus size={28} />
@@ -645,7 +652,7 @@ function Services({
                     Catégorie
                     <input
                       value={editing.category}
-                      placeholder="Ex. Knotless, Braids..."
+                      placeholder="Ex. Knotless, Braids, Protectrices"
                       onChange={(event) =>
                         setEditing({ ...editing, category: event.target.value })
                       }

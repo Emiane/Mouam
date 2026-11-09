@@ -14,12 +14,16 @@ export async function POST(request: Request) {
   const apiKey = env.CLOUDINARY_API_KEY;
   const apiSecret = env.CLOUDINARY_API_SECRET;
 
-  if (!cloudName || !apiKey || !apiSecret) {
+  if (!cloudName || !apiKey || !apiSecret || cloudName === "your_cloud_name") {
     return Response.json({ error: "Cloudinary n’est pas encore configuré." }, { status: 500 });
   }
 
-  const formData = await request.formData();
-  const file = formData.get("file");
+  let file: FormDataEntryValue | null;
+  try {
+    file = (await request.formData()).get("file");
+  } catch {
+    return Response.json({ error: "Le fichier envoyé est invalide." }, { status: 400 });
+  }
 
   if (!(file instanceof File) || !file.type.startsWith("image/")) {
     return Response.json({ error: "Sélectionnez une image valide." }, { status: 400 });
@@ -29,10 +33,11 @@ export async function POST(request: Request) {
   }
 
   const timestamp = Math.floor(Date.now() / 1000).toString();
-  const params = { timestamp };
+  const params = { folder: "mouams-hairstyle", timestamp };
   const uploadData = new FormData();
   uploadData.append("file", file);
   uploadData.append("api_key", apiKey);
+  uploadData.append("folder", params.folder);
   uploadData.append("timestamp", timestamp);
   uploadData.append("signature", await signature(params, apiSecret));
 
@@ -43,7 +48,11 @@ export async function POST(request: Request) {
   const result = await response.json();
 
   if (!response.ok || !result.secure_url) {
-    return Response.json({ error: "Cloudinary n’a pas pu enregistrer l’image." }, { status: 502 });
+    const cloudinaryMessage = typeof result?.error?.message === "string" ? result.error.message : "";
+    return Response.json(
+      { error: cloudinaryMessage || "Cloudinary n’a pas pu enregistrer l’image." },
+      { status: 502 }
+    );
   }
 
   return Response.json({ url: result.secure_url });

@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
     "start": "wrangler dev --config dist/server/wrangler.json",
-    "lint": "eslint"
+    "lint": "eslint src"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",
