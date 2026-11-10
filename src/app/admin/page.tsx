@@ -354,6 +354,10 @@ export default function AdminPage() {
 
   if (!mounted) return <main className="admin-login" aria-busy="true" />;
 
+  const emailInvalid = email.length > 0 && !isValidEmail(email.trim());
+  const passwordError = password.length > 0 ? getPasswordError(password) : "";
+  const passwordInvalid = password.length > 0 && Boolean(passwordError);
+
   // Écran de Connexion
   if (!logged) {
     return (
@@ -373,6 +377,7 @@ export default function AdminPage() {
             <input
               id="admin-email"
               type="email"
+              className={emailInvalid ? "input-invalid" : ""}
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
@@ -383,10 +388,12 @@ export default function AdminPage() {
               autoFocus
               required
             />
+            {emailInvalid && <small className="admin-field-error">Adresse e-mail invalide.</small>}
             <label htmlFor="admin-password">Mot de passe</label>
             <input
               id="admin-password"
               type="password"
+              className={passwordInvalid ? "input-invalid" : ""}
               value={password}
               onChange={(event) => {
                 setPassword(event.target.value);
@@ -397,8 +404,8 @@ export default function AdminPage() {
               minLength={8}
               required
             />
-            <small className="admin-password-hint">
-              8 caractères minimum, avec une majuscule, une minuscule et un chiffre.
+            <small className={passwordInvalid ? "admin-password-hint admin-field-error" : "admin-password-hint"}>
+              {passwordError || "8 caractères minimum, avec une majuscule, une minuscule et un chiffre."}
             </small>
             {loginFeedback && (
               <p
