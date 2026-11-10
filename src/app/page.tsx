@@ -3,6 +3,7 @@
 import { Menu, MessageCircle, X } from "lucide-react";
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
 import { useEffect, useState, type CSSProperties } from "react";
+import { supabase } from "@/lib/supabase";
 
 // ==========================================
 // TYPES & DONNÉES STATIQUES
@@ -253,6 +254,8 @@ export default function Home() {
   const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
   const [siteSlots, setSiteSlots] = useState<string[]>(TIME_SLOTS);
   const [showAllGallery, setShowAllGallery] = useState(false);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState("");
 
   // Variables calculées
   const unavailableSlots = blockedSlots;
@@ -265,34 +268,47 @@ export default function Home() {
   const bookingPrice = bookingStyle ? bookingStyle.price : 0;
   const isBookingComplete = customerName.trim() !== "" && customerWhatsapp.trim() !== "" && selectedDate !== "" && selectedSlot !== "";
 
-  // Synchronisation avec le localStorage au montage côté client
+  // Chargement des données partagées depuis Supabase.
   useEffect(() => {
-    function syncLocalStorageData() {
-      try {
-        const savedServices = JSON.parse(localStorage.getItem("mouams-services") ?? "null");
-        if (Array.isArray(savedServices) && savedServices.length > 0) {
-          const activeServices = savedServices.filter((s: Service) => s.active !== false);
-          setSiteServices(activeServices);
-          setFilters(["Tout voir", ...Array.from(new Set(activeServices.flatMap((s: Service) => getCategories(s.category))))]);
-        }
-
-        setBlockedSlots(JSON.parse(localStorage.getItem("mouams-blocked-slots") ?? "[]"));
-
-        const savedSlots = JSON.parse(localStorage.getItem("mouams-time-slots") ?? "null");
-        if (Array.isArray(savedSlots)) setSiteSlots(savedSlots);
-
-        const savedReviews = JSON.parse(localStorage.getItem("mouams-reviews") ?? "[]");
-        if (Array.isArray(savedReviews) && savedReviews.length > 0) {
-          setDisplayedReviews([...INITIAL_REVIEWS, ...savedReviews]);
-        }
-      } catch {
-        // Fallback discret en cas d'erreur
+    if (!supabase) return;
+    const loadPublicData = async () => {
+      const [servicesResult, slotsResult, reviewsResult] = await Promise.all([
+        supabase.from("services").select("*").eq("active", true).order("created_at"),
+        supabase.from("time_slots").select("time, is_blocked, sort_order").order("sort_order").order("time"),
+        supabase.from("reviews").select("id, name, service, comment, rating, category").eq("approved", true).order("created_at"),
+      ]);
+      if (!servicesResult.error && servicesResult.data?.length) {
+        const services = servicesResult.data.map((service) => ({
+          ...service,
+          image: service.image_url,
+          price: Number(service.price),
+        })) as Service[];
+        setSiteServices(services);
+        setBookingStyle((current) => services.find((service) => service.name === current.name) ?? services[0]);
+        setFilters(["Tout voir", ...Array.from(new Set(services.flatMap((service) => getCategories(service.category))))]);
       }
-    }
+      if (!slotsResult.error && slotsResult.data?.length) {
+        setSiteSlots(slotsResult.data.map((slot) => slot.time));
+        setBlockedSlots(slotsResult.data.filter((slot) => slot.is_blocked).map((slot) => slot.time));
+      }
+      if (!reviewsResult.error && reviewsResult.data?.length) {
+        setDisplayedReviews([
+          ...INITIAL_REVIEWS,
+          ...reviewsResult.data.map((review) => ({ ...review, text: review.comment })) as Review[],
+        ]);
+      }
+    };
 
-    syncLocalStorageData();
-    window.addEventListener("storage", syncLocalStorageData);
-    return () => window.removeEventListener("storage", syncLocalStorageData);
+    void loadPublicData();
+    const channel = supabase
+      .channel("public-catalogue")
+      .on("postgres_changes", { event: "*", schema: "public", table: "services" }, loadPublicData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_slots" }, loadPublicData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "reviews" }, loadPublicData)
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   // Gestion du scroll progress
@@ -312,20 +328,24 @@ export default function Home() {
   }, []);
 
   // Actions de soumission
-  function submitBooking() {
+  async function submitBooking() {
     if (!isBookingComplete) return;
-    const appointment = {
-      id: `booking-${Date.now()}`,
+    if (!supabase) return;
+    setBookingSubmitting(true);
+    setBookingError("");
+    const { error } = await supabase.from("appointments").insert({
       name: customerName.trim(),
       whatsapp: `${countryCode} ${customerWhatsapp.trim()}`,
       service: bookingStyle.name,
       date: selectedDate,
       time: selectedSlot,
-      status: "En attente" as const,
-    };
-    const current = JSON.parse(localStorage.getItem("mouams-appointments") ?? "[]");
-    localStorage.setItem("mouams-appointments", JSON.stringify([...current, appointment]));
-    window.dispatchEvent(new Event("storage"));
+      status: "En attente",
+    });
+    if (error) {
+      setBookingError("La demande n’a pas pu être envoyée. Réessayez dans un instant.");
+      setBookingSubmitting(false);
+      return;
+    }
 
     // Reset
     setCustomerName("");
@@ -334,21 +354,21 @@ export default function Home() {
     setSelectedSlot("");
     setDateError("");
     setBookingOpen(false);
+    setBookingSubmitting(false);
   }
 
-  function submitReview() {
+  async function submitReview() {
     if (!reviewName.trim() || !reviewComment.trim() || reviewRating === 0) return;
-    const review: Review = {
-      id: Date.now(),
+    if (!supabase) return;
+    const { error } = await supabase.from("reviews").insert({
       name: reviewName.trim(),
-      text: reviewComment.trim(),
+      comment: reviewComment.trim(),
       rating: reviewRating,
       service: bookingStyle.name,
       category: reviewCategory,
-    };
-    const current = JSON.parse(localStorage.getItem("mouams-reviews") ?? "[]");
-    localStorage.setItem("mouams-reviews", JSON.stringify([...current, review]));
-    setDisplayedReviews((items) => [...items, review]);
+      approved: false,
+    });
+    if (error) return;
 
     // Reset
     setReviewName("");
@@ -723,8 +743,9 @@ export default function Home() {
             </div>
 
             <button className="button button-dark full rounded-action" disabled={!isBookingComplete} onClick={submitBooking}>
-              Envoyer ma demande <span>↗</span>
+              {bookingSubmitting ? "Envoi..." : "Envoyer ma demande"} <span>↗</span>
             </button>
+            {bookingError && <p className="date-error" role="alert">{bookingError}</p>}
             <small className="deposit">Acompte obligatoire de 20 € · Confirmation manuelle par WhatsApp</small>
           </div>
         </div>

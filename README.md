@@ -32,6 +32,29 @@ CLOUDINARY_API_SECRET=...
 
 Après une rotation de clés Cloudinary, mettre à jour les variables Hiraiship et `.dev.vars`.
 
+## Connexion administrateur Supabase
+
+Le formulaire `/admin` utilise Supabase Auth avec l’adresse e-mail et le mot de
+passe du compte administrateur. Le mot de passe doit contenir au moins 8
+caractères, une majuscule, une minuscule et un chiffre. Aucun symbole n’est
+obligatoire.
+
+Pour le build local, ajouter dans `.env.local` :
+
+```text
+VITE_SUPABASE_URL=https://votre-projet.supabase.co
+VITE_SUPABASE_ANON_KEY=votre_cle_anon
+```
+
+Dans Supabase :
+
+1. Dans **Authentication > Providers > Email**, laisser la confirmation d’adresse e-mail activée.
+2. Dans **Authentication > Configuration**, définir la longueur minimale du mot de passe à 8 caractères.
+3. Dans **Authentication > Users**, créer le compte de ta sœur et lui faire confirmer son adresse e-mail.
+4. Ajouter son identifiant dans `public.profiles` avec `role = 'admin'`.
+
+Dans Hiraiship, ajouter `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` comme variables de build, puis redéployer. La clé `service_role` ne doit jamais être ajoutée au navigateur ou au dépôt.
+
 ## Déploiement
 
 ```bash

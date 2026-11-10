@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 
 import "./admin.css";
+import { supabase } from "@/lib/supabase";
 import {
   CalendarDays,
   Check,
@@ -105,6 +106,18 @@ function normalizeCategories(category: string) {
   return Array.from(new Set(category.split(",").map((item) => item.trim()).filter(Boolean))).join(", ");
 }
 
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function getPasswordError(password: string) {
+  if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
+  if (!/[A-Z]/.test(password)) return "Le mot de passe doit contenir une majuscule.";
+  if (!/[a-z]/.test(password)) return "Le mot de passe doit contenir une minuscule.";
+  if (!/\d/.test(password)) return "Le mot de passe doit contenir un chiffre.";
+  return "";
+}
+
 // ==========================================
 // FONCTIONS UTILITAIRES
 // ==========================================
@@ -128,15 +141,6 @@ async function optimizeImage(file: File): Promise<Blob> {
   });
 }
 
-function stored<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 // ==========================================
 // COMPOSANT PRINCIPAL DE PAGE ADMIN
 // ==========================================
@@ -144,7 +148,9 @@ function stored<T>(key: string, fallback: T): T {
 export default function AdminPage() {
   const [mounted, setMounted] = useState(false);
   const [logged, setLogged] = useState(false);
-  const [code, setCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
   const [tab, setTab] = useState("overview");
 
   const [services, setServices] = useState<Service[]>(defaultServices);
@@ -155,75 +161,196 @@ export default function AdminPage() {
   const [notice, setNotice] = useState("");
   const [loginFeedback, setLoginFeedback] = useState("");
 
-  const save = (key: string, value: unknown) => localStorage.setItem(key, JSON.stringify(value));
-
   const flash = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2200);
   };
 
-  const setServicesAndSave = (value: Service[]) => {
+  const setServicesAndSave = async (value: Service[]) => {
     const normalized = value.map((service) => ({ ...service, price: Number(service.price) }));
-    setServices(normalized);
-    save("mouams-services", normalized);
-  };
-
-  const setAppointmentsAndSave = (value: Appointment[]) => {
-    setAppointments(value);
-    save("mouams-appointments", value);
-  };
-
-  const setBlockedAndSave = (value: string[]) => {
-    setBlocked(value);
-    save("mouams-blocked-slots", value);
-  };
-
-  const setAvailableSlotsAndSave = (value: string[]) => {
-    setAvailableSlots(value);
-    save("mouams-time-slots", value);
-  };
-
-  const login = (event: FormEvent) => {
-    event.preventDefault();
-    if (code === "Mouam2026") {
-      sessionStorage.setItem("mouams-admin", "true");
-      setLoginFeedback("Connexion réussie.");
-      window.setTimeout(() => setLogged(true), 550);
-    } else {
-      setLoginFeedback("Le code d’accès est incorrect.");
+    if (!supabase) return;
+    const removedIds = services
+      .filter((service) => !normalized.some((nextService) => nextService.id === service.id))
+      .map((service) => service.id);
+    if (removedIds.length) {
+      const { error: deleteError } = await supabase.from("services").delete().in("id", removedIds);
+      if (deleteError) {
+        flash("Impossible de supprimer la prestation");
+        return;
+      }
     }
+    const { error } = await supabase.from("services").upsert(
+      normalized.map((service) => ({
+        id: service.id,
+        name: service.name,
+        category: service.category,
+        description: service.description,
+        price: service.price,
+        image_url: service.image,
+        size: service.size,
+        length: service.length,
+        active: service.active,
+      }))
+    );
+    if (error) {
+      flash("Impossible d’enregistrer les prestations");
+      return;
+    }
+    setServices(normalized);
+    flash("Prestations enregistrées");
+  };
+
+  const setAppointmentsAndSave = async (value: Appointment[]) => {
+    if (!supabase) return;
+    const changed = value.find((item) => appointments.find((current) => current.id === item.id)?.status !== item.status);
+    if (!changed) return;
+    const { error } = await supabase.from("appointments").update({ status: changed.status }).eq("id", changed.id);
+    if (error) {
+      flash("Impossible de mettre à jour le rendez-vous");
+      return;
+    }
+    setAppointments(value);
+  };
+
+  const setBlockedAndSave = async (value: string[]) => {
+    if (!supabase) return;
+    const nextSlots = availableSlots.map((time) => ({ time, is_blocked: value.includes(time) }));
+    const { error } = await supabase.from("time_slots").upsert(nextSlots, { onConflict: "time" });
+    if (error) {
+      flash("Impossible d’enregistrer les disponibilités");
+      return;
+    }
+    setBlocked(value);
+  };
+
+  const setAvailableSlotsAndSave = async (value: string[]) => {
+    if (!supabase) return;
+    const removed = availableSlots.filter((time) => !value.includes(time));
+    const { error: deleteError } = removed.length
+      ? await supabase.from("time_slots").delete().in("time", removed)
+      : { error: null };
+    const { error } = deleteError
+      ? { error: deleteError }
+      : await supabase.from("time_slots").upsert(
+          value.map((time, index) => ({ time, is_blocked: blocked.includes(time), sort_order: index })),
+          { onConflict: "time" }
+        );
+    if (error) {
+      flash("Impossible d’enregistrer les créneaux");
+      return;
+    }
+    setAvailableSlots(value);
+    setBlocked(blocked.filter((time) => value.includes(time)));
+  };
+
+  const loadAdminData = async () => {
+    if (!supabase) return;
+    const [servicesResult, appointmentsResult, slotsResult] = await Promise.all([
+      supabase.from("services").select("*").order("created_at"),
+      supabase.from("appointments").select("*").order("created_at", { ascending: false }),
+      supabase.from("time_slots").select("*").order("sort_order").order("time"),
+    ]);
+
+    if (!servicesResult.error && servicesResult.data) {
+      setServices(
+        servicesResult.data.map((service) => ({
+          ...service,
+          image: service.image_url,
+          price: Number(service.price),
+        })) as Service[]
+      );
+    }
+    if (!appointmentsResult.error && appointmentsResult.data) {
+      setAppointments(appointmentsResult.data as Appointment[]);
+    }
+    if (!slotsResult.error && slotsResult.data) {
+      setAvailableSlots(slotsResult.data.map((slot) => slot.time));
+      setBlocked(slotsResult.data.filter((slot) => slot.is_blocked).map((slot) => slot.time));
+    }
+  };
+
+  const login = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoginFeedback("");
+
+    if (!supabase) {
+      setLoginFeedback("La connexion Supabase n’est pas configurée.");
+      return;
+    }
+    if (!isValidEmail(email.trim())) {
+      setLoginFeedback("Saisissez une adresse e-mail valide.");
+      return;
+    }
+    const passwordError = getPasswordError(password);
+    if (passwordError) {
+      setLoginFeedback(passwordError);
+      return;
+    }
+
+    setAuthLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error || !data.user) {
+      setLoginFeedback(
+        error?.message.toLowerCase().includes("email not confirmed")
+          ? "Confirmez votre adresse e-mail avant de vous connecter."
+          : "E-mail ou mot de passe incorrect."
+      );
+      setAuthLoading(false);
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profileError || profile?.role !== "admin") {
+      await supabase.auth.signOut();
+      setLoginFeedback("Ce compte n’a pas accès à l’espace administrateur.");
+      setAuthLoading(false);
+      return;
+    }
+
+    await loadAdminData();
+    setLogged(true);
+    setAuthLoading(false);
   };
 
   // Lecture du stockage navigateur après le montage (évite l'erreur d'hydratation)
   useEffect(() => {
-    setLogged(sessionStorage.getItem("mouams-admin") === "true");
-    setServices(
-      stored<Service[]>("mouams-services", defaultServices).map((service: Service) => ({
-        ...service,
-        price: Number(service.price ?? service.priceWithHair ?? 0),
-      }))
-    );
-    setAppointments(stored("mouams-appointments", defaultAppointments));
-    setBlocked(stored("mouams-blocked-slots", ["10:30"]));
-    setAvailableSlots(stored("mouams-time-slots", defaultSlots));
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    function syncSharedData() {
-      setAppointments(stored("mouams-appointments", appointments));
-      setServices(
-        stored<Service[]>("mouams-services", services).map((service: Service) => ({
-          ...service,
-          price: Number(service.price ?? service.priceWithHair ?? 0),
-        }))
-      );
-      setAvailableSlots(stored("mouams-time-slots", availableSlots));
-      setBlocked(stored("mouams-blocked-slots", blocked));
+    const client = supabase;
+    if (client) {
+      client.auth.getSession().then(async ({ data }) => {
+        if (!data.session?.user) return;
+        const { data: profile } = await client
+          .from("profiles")
+          .select("role")
+          .eq("id", data.session.user.id)
+          .maybeSingle();
+        if (profile?.role === "admin") {
+          await loadAdminData();
+          setLogged(true);
+        } else {
+          await client.auth.signOut();
+        }
+      });
     }
-    window.addEventListener("storage", syncSharedData);
-    return () => window.removeEventListener("storage", syncSharedData);
-  }, [appointments, availableSlots, blocked, services]);
+
+    const initialDataTimer = window.setTimeout(() => setMounted(true));
+
+    const authListener = client?.auth.onAuthStateChange((_event, session) => {
+      if (!session) setLogged(false);
+    });
+    return () => {
+      window.clearTimeout(initialDataTimer);
+      authListener?.data.subscription.unsubscribe();
+    };
+  }, []);
 
   if (!mounted) return <main className="admin-login" aria-busy="true" />;
 
@@ -240,20 +367,39 @@ export default function AdminPage() {
             Espace<br />
             <i>administrateur.</i>
           </h1>
-          <p>Gérez vos prestations, votre galerie et vos rendez-vous depuis un seul endroit.</p>
+          <p>Connectez-vous avec votre adresse e-mail pour gérer vos prestations et rendez-vous.</p>
           <form onSubmit={login}>
-            <label htmlFor="admin-code">Code d&apos;accès</label>
+            <label htmlFor="admin-email">Adresse e-mail</label>
             <input
-              id="admin-code"
-              type="password"
-              value={code}
+              id="admin-email"
+              type="email"
+              value={email}
               onChange={(event) => {
-                setCode(event.target.value);
+                setEmail(event.target.value);
                 setLoginFeedback("");
               }}
-              placeholder="Votre code"
+              placeholder="vous@exemple.com"
+              autoComplete="email"
               autoFocus
+              required
             />
+            <label htmlFor="admin-password">Mot de passe</label>
+            <input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setLoginFeedback("");
+              }}
+              placeholder="Votre mot de passe"
+              autoComplete="current-password"
+              minLength={8}
+              required
+            />
+            <small className="admin-password-hint">
+              8 caractères minimum, avec une majuscule, une minuscule et un chiffre.
+            </small>
             {loginFeedback && (
               <p
                 className={loginFeedback === "Connexion réussie." ? "admin-success" : "admin-error"}
@@ -262,8 +408,8 @@ export default function AdminPage() {
                 {loginFeedback}
               </p>
             )}
-            <button className="admin-primary" type="submit">
-              Ouvrir mon espace <span>↗</span>
+            <button className="admin-primary" type="submit" disabled={authLoading}>
+              {authLoading ? "Connexion..." : "Ouvrir mon espace"} <span>↗</span>
             </button>
           </form>
           <a className="admin-back" href="/">
@@ -327,8 +473,7 @@ export default function AdminPage() {
           </a>
           <button
             onClick={() => {
-              sessionStorage.removeItem("mouams-admin");
-              setLogged(false);
+              void supabase?.auth.signOut();
             }}
           >
             <LogOut size={15} />
