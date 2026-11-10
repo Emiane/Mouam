@@ -145,7 +145,6 @@ footer { align-items: center; background: var(--ink); color: var(--paper); displ
 footer { align-items: flex-start; }
 .socials { align-items: flex-start; flex-direction: column; gap: 11px; }
 .socials a { border-bottom: 0; }
-.admin-link { color: var(--peach); font-size: 10px !important; margin-top: 5px; }
 .weekend-calendar { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; padding: 14px; width: 100%; }
 .calendar-header, .calendar-weekdays, .calendar-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .calendar-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 10px; }

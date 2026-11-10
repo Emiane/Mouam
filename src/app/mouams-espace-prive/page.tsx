@@ -293,6 +293,14 @@ export default function AdminPage() {
       password,
     });
 
+    if (error) {
+      console.error("Erreur Supabase Auth:", {
+        code: error.code,
+        status: error.status,
+        message: error.message,
+      });
+    }
+
     if (error || !data.user) {
       setLoginFeedback(
         error?.message.toLowerCase().includes("email not confirmed")

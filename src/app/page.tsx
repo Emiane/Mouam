@@ -662,7 +662,6 @@ export default function Home() {
           <a href="https://www.facebook.com/profile.php?id=61553016847073" target="_blank" rel="noreferrer" aria-label="Facebook"><FaFacebook size={18} /> Mouam&apos;s Hairstyle</a>
           <a href="https://www.tiktok.com/@mouamshairstyle" target="_blank" rel="noreferrer" aria-label="TikTok"><FaTiktok size={18} /> Mouam&apos;s Hairstyle</a>
           <a href="https://www.instagram.com/mouamshairstyle" target="_blank" rel="noreferrer" aria-label="Instagram"><FaInstagram size={18} /> Mouam&apos;s Hairstyle</a>
-          <a className="admin-link" href="/admin">Espace admin ↗</a>
         </div>
         <small>© 2026 Mouam&apos;s Hairstyle. Tous droits réservés.</small>
       </footer>

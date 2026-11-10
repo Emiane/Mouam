@@ -64,8 +64,12 @@ npm run build
 
 Le dossier de sortie Cloudflare est généré par Vinext. Le déploiement Hiraiship doit utiliser Node 22 et définir les trois secrets Cloudinary avant le build.
 
-Le lien **Espace admin** est disponible dans le pied de page du site et pointe vers `/admin`.
+L’espace administrateur est accessible uniquement via l’URL privée `/mouams-espace-prive`.
+Elle n’est pas affichée sur le site public et reste protégée par Supabase Auth.
 
-## Limite actuelle des données
+## Données et accès
 
-Les prestations, réservations, avis et disponibilités sont encore stockés dans le `localStorage` du navigateur. Les modifications faites dans l’admin sont donc visibles dans le même navigateur, mais ne constituent pas encore une base de données partagée entre appareils ou visiteurs. Cloudinary stocke les images, mais ne remplace pas cette persistance applicative.
+Les prestations, réservations, avis et disponibilités sont stockés dans
+Supabase et partagés entre les appareils. Les images sont stockées dans
+Cloudinary. L’espace privé reste protégé par Supabase Auth, même si quelqu’un
+devine son URL.
