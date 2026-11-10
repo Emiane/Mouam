@@ -311,7 +311,11 @@ export default function AdminPage() {
 
     if (profileError || profile?.role !== "admin") {
       await supabase.auth.signOut();
-      setLoginFeedback("Ce compte n’a pas accès à l’espace administrateur.");
+      setLoginFeedback(
+        profileError
+          ? "Impossible de vérifier le profil admin. Vérifiez la table profiles et ses règles RLS."
+          : "Connexion réussie, mais ce compte n’a pas le rôle admin dans profiles."
+      );
       setAuthLoading(false);
       return;
     }
