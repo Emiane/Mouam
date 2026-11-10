@@ -2,7 +2,7 @@
 
 import { Menu, MessageCircle, X } from "lucide-react";
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type TouchEvent } from "react";
 import { supabase } from "@/lib/supabase";
 
 // ==========================================
@@ -253,14 +253,17 @@ export default function Home() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
   const [siteSlots, setSiteSlots] = useState<string[]>(TIME_SLOTS);
-  const [showAllGallery, setShowAllGallery] = useState(false);
+  const [galleryPage, setGalleryPage] = useState(0);
+  const [serviceTouchStart, setServiceTouchStart] = useState<number | null>(null);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState("");
 
   // Variables calculées
   const unavailableSlots = blockedSlots;
   const visibleStyles = filter === "Tout voir" ? siteServices : siteServices.filter((s) => getCategories(s.category).includes(filter));
-  const displayedStyles = showAllGallery ? visibleStyles : visibleStyles.slice(0, 6);
+  const galleryPageSize = 6;
+  const galleryPageCount = Math.max(1, Math.ceil(visibleStyles.length / galleryPageSize));
+  const displayedStyles = visibleStyles.slice(galleryPage * galleryPageSize, (galleryPage + 1) * galleryPageSize);
   const galleryColumns = Array.from({ length: 4 }, (_, columnIndex) =>
     displayedStyles.filter((_, index) => index % 4 === columnIndex)
   );
@@ -270,12 +273,13 @@ export default function Home() {
 
   // Chargement des données partagées depuis Supabase.
   useEffect(() => {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
     const loadPublicData = async () => {
       const [servicesResult, slotsResult, reviewsResult] = await Promise.all([
-        supabase.from("services").select("*").eq("active", true).order("created_at"),
-        supabase.from("time_slots").select("time, is_blocked, sort_order").order("sort_order").order("time"),
-        supabase.from("reviews").select("id, name, service, comment, rating, category").eq("approved", true).order("created_at"),
+        client.from("services").select("*").eq("active", true).order("created_at"),
+        client.from("time_slots").select("time, is_blocked, sort_order").order("sort_order").order("time"),
+        client.from("reviews").select("id, name, service, comment, rating, category").eq("approved", true).order("created_at"),
       ]);
       if (!servicesResult.error && servicesResult.data?.length) {
         const services = servicesResult.data.map((service) => ({
@@ -300,14 +304,14 @@ export default function Home() {
     };
 
     void loadPublicData();
-    const channel = supabase
+    const channel = client
       .channel("public-catalogue")
       .on("postgres_changes", { event: "*", schema: "public", table: "services" }, loadPublicData)
       .on("postgres_changes", { event: "*", schema: "public", table: "time_slots" }, loadPublicData)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews" }, loadPublicData)
       .subscribe();
     return () => {
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, []);
 
@@ -383,6 +387,22 @@ export default function Home() {
     setBookingOpen(true);
   }
 
+  function changeService(direction: number) {
+    if (siteServices.length === 0) return;
+    setActiveService((current) => (current + direction + siteServices.length) % siteServices.length);
+  }
+
+  function handleServiceTouchStart(event: TouchEvent<HTMLDivElement>) {
+    setServiceTouchStart(event.changedTouches[0]?.clientX ?? null);
+  }
+
+  function handleServiceTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    if (serviceTouchStart === null) return;
+    const distance = (event.changedTouches[0]?.clientX ?? serviceTouchStart) - serviceTouchStart;
+    if (Math.abs(distance) >= 45) changeService(distance < 0 ? 1 : -1);
+    setServiceTouchStart(null);
+  }
+
   function chooseDate(value: string) {
     if (!value) {
       setSelectedDate("");
@@ -454,14 +474,14 @@ export default function Home() {
           </div>
           <div className="filters">
             {filters.map((item) => (
-              <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>
+              <button key={item} className={filter === item ? "active" : ""} onClick={() => { setFilter(item); setGalleryPage(0); }}>{item}</button>
             ))}
           </div>
           <div className="gallery-grid">
             {galleryColumns.map((column, columnIndex) => (
               <div className="gallery-column" key={`gallery-column-${columnIndex}`}>
                 {column.map((service, itemIndex) => (
-                  <button className={`gallery-card card-${(columnIndex + itemIndex) % 4 + 1}`} key={service.name} onClick={() => setSelectedStyle(service)}>
+                  <button className={`gallery-card card-${(columnIndex + itemIndex) % 4 + 1}`} key={service.id ?? `${service.name}-${columnIndex}-${itemIndex}`} onClick={() => setSelectedStyle(service)}>
                     <img src={service.image} alt={service.name} />
                     <span className="card-overlay"><strong>{service.name}</strong><small>{service.price} € avec mèches</small></span>
                     <span className="card-arrow">↗</span>
@@ -470,10 +490,12 @@ export default function Home() {
               </div>
             ))}
           </div>
-          {visibleStyles.length > 6 && (
-            <button className="gallery-more-link" onClick={() => setShowAllGallery(!showAllGallery)}>
-              {showAllGallery ? "Réduire le book" : "Voir tout le book"} <span>↗</span>
-            </button>
+          {galleryPageCount > 1 && (
+            <div className="gallery-pagination" aria-label="Pagination de la galerie">
+              <button type="button" onClick={() => setGalleryPage((page) => Math.max(0, page - 1))} disabled={galleryPage === 0} aria-label="Page précédente">←</button>
+              <span>{galleryPage + 1} / {galleryPageCount}</span>
+              <button type="button" onClick={() => setGalleryPage((page) => Math.min(galleryPageCount - 1, page + 1))} disabled={galleryPage === galleryPageCount - 1} aria-label="Page suivante">→</button>
+            </div>
           )}
           <p className="gallery-note">Les images sont des inspirations. Les coiffures réalisées peuvent être conservées dans le book de Mouam&apos;s au fil des rendez-vous.</p>
         </section>
@@ -488,10 +510,10 @@ export default function Home() {
             <p>Faites défiler les créations<br />et trouvez votre prochaine coiffure.</p>
           </div>
           {currentService && (
-            <div className="service-showcase" key={currentService.name}>
+            <div className="service-showcase" key={currentService.id ?? currentService.name} onTouchStart={handleServiceTouchStart} onTouchEnd={handleServiceTouchEnd}>
               <div className="service-preview" style={{ "--image-background": `url(${currentService.image})` } as CSSProperties}>
                 <img src={currentService.image} alt={currentService.name} />
-                <span className="service-index">0{activeService + 1} / 0{siteServices.length}</span>
+                <span className="service-index">{String(activeService + 1).padStart(2, "0")} / {String(siteServices.length).padStart(2, "0")}</span>
               </div>
               <div className="service-details">
                 <p className="eyebrow light">{getCategories(currentService.category).join(" · ")}</p>
@@ -505,13 +527,13 @@ export default function Home() {
                 </div>
                 <button className="button button-dark full" onClick={() => openBooking(currentService)}>Choisir cette coiffure <span>↗</span></button>
                 <div className="service-controls">
-                  <button onClick={() => setActiveService((activeService - 1 + siteServices.length) % siteServices.length)} aria-label="Prestation précédente">←</button>
+                  <button onClick={() => changeService(-1)} aria-label="Prestation précédente">←</button>
                   <div>
                     {siteServices.map((service, index) => (
-                      <button key={service.name} className={activeService === index ? "active" : ""} onClick={() => setActiveService(index)} aria-label={`Voir ${service.name}`} />
+                      <button key={service.id ?? `${service.name}-${index}`} className={activeService === index ? "active" : ""} onClick={() => setActiveService(index)} aria-label={`Voir ${service.name}`} />
                     ))}
                   </div>
-                  <button onClick={() => setActiveService((activeService + 1) % siteServices.length)} aria-label="Prestation suivante">→</button>
+                  <button onClick={() => changeService(1)} aria-label="Prestation suivante">→</button>
                 </div>
               </div>
             </div>
@@ -555,7 +577,7 @@ export default function Home() {
 
             <label htmlFor="booking-style">Coiffure</label>
             <select id="booking-style" value={bookingStyle.name} onChange={(e) => setBookingStyle(siteServices.find((s) => s.name === e.target.value) ?? SERVICES[0])}>
-              {siteServices.map((service) => <option key={service.name}>{service.name}</option>)}
+              {siteServices.map((service, index) => <option key={service.id ?? `${service.name}-${index}`}>{service.name}</option>)}
             </select>
 
             <div className="booking-summary">
@@ -585,8 +607,8 @@ export default function Home() {
               })}
             </div>
 
-            <button className="button button-dark full rounded-action" onClick={() => setBookingOpen(true)} disabled={!isBookingComplete}>
-              Continuer la réservation <span>↗</span>
+            <button className="button button-dark full rounded-action" onClick={submitBooking} disabled={!isBookingComplete || bookingSubmitting}>
+              {bookingSubmitting ? "Envoi..." : "Effectuer la réservation"} <span>↗</span>
             </button>
             <small className="deposit">Acompte obligatoire de 20 € · Confirmation manuelle par WhatsApp</small>
           </div>
@@ -711,7 +733,7 @@ export default function Home() {
 
             <label htmlFor="modal-booking-style">Coiffure</label>
             <select id="modal-booking-style" value={bookingStyle.name} onChange={(e) => setBookingStyle(siteServices.find((s) => s.name === e.target.value) ?? SERVICES[0])}>
-              {siteServices.map((service) => <option key={service.name}>{service.name}</option>)}
+              {siteServices.map((service, index) => <option key={service.id ?? `${service.name}-${index}`}>{service.name}</option>)}
             </select>
 
             <div className="booking-summary">

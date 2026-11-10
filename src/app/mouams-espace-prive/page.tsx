@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase";
 import {
   CalendarDays,
   Check,
+  Eye,
+  EyeOff,
   ImagePlus,
   LayoutDashboard,
   LogOut,
@@ -150,6 +152,7 @@ export default function AdminPage() {
   const [logged, setLogged] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [tab, setTab] = useState("overview");
 
@@ -402,20 +405,29 @@ export default function AdminPage() {
             />
             {emailInvalid && <small className="admin-field-error">Adresse e-mail invalide.</small>}
             <label htmlFor="admin-password">Mot de passe</label>
-            <input
-              id="admin-password"
-              type="password"
-              className={passwordInvalid ? "input-invalid" : ""}
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                setLoginFeedback("");
-              }}
-              placeholder="Votre mot de passe"
-              autoComplete="current-password"
-              minLength={8}
-              required
-            />
+            <div className={`password-field ${passwordInvalid ? "input-invalid" : ""}`}>
+              <input
+                id="admin-password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setLoginFeedback("");
+                }}
+                placeholder="Votre mot de passe"
+                autoComplete="current-password"
+                minLength={8}
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
             <small className={passwordInvalid ? "admin-password-hint admin-field-error" : "admin-password-hint"}>
               {passwordError || "8 caractères minimum, avec une majuscule, une minuscule et un chiffre."}
             </small>
@@ -645,6 +657,9 @@ function Services({
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [page, setPage] = useState(0);
+  const pageSize = 6;
+  const pageCount = Math.max(1, Math.ceil(services.length / pageSize));
 
   const add = () => {
     setUploadError("");
@@ -706,6 +721,7 @@ function Services({
   const displayedServices = services.map((service) =>
     service.id === editing?.id ? { ...service, image: editing.image } : service
   );
+  const paginatedServices = displayedServices.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
     <div className="admin-page-body">
@@ -721,7 +737,7 @@ function Services({
       </div>
 
       <div className="admin-service-grid">
-        {displayedServices.map((service) => (
+        {paginatedServices.map((service) => (
           <article className="admin-service-card" key={service.id}>
             <div className="admin-service-image">
               <img src={service.image} alt={service.name} />
@@ -760,6 +776,14 @@ function Services({
           </article>
         ))}
       </div>
+
+      {pageCount > 1 && (
+        <div className="admin-pagination" aria-label="Pagination des prestations">
+          <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0} aria-label="Page précédente">←</button>
+          <span>{page + 1} / {pageCount}</span>
+          <button type="button" onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} disabled={page === pageCount - 1} aria-label="Page suivante">→</button>
+        </div>
+      )}
 
       {editing && typeof document !== "undefined"
         ? createPortal(
